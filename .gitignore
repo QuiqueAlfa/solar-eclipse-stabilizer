@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+
+# Entradas de vídeo y exportaciones
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+# Carpeta de salida por vídeo derivada del nombre + hash (p.ej. foo_12345678_output/)
+*_output/
+eclipse_output/
+output/
+output_debug/
+
+# Datos de trabajo y referencias locales
+.local/
+
+# Artefactos de datos y logs
+*.npz
+*.csv
+*.log
+*.pkl
+release-assets/
+
+# Archivos temporales del sistema y editores
+.DS_Store
+Thumbs.db
+*.tmp
+*.bak

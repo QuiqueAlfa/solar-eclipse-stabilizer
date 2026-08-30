@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "name": "example",
+  "description": "Example per-video corrections. Replace every range after reviewing your own video.",
+  "discards": [
+    {
+      "start": 120,
+      "end": 124,
+      "reason": "example corrupt burst"
+    },
+    {
+      "frame": 900,
+      "reason": "example reviewed frame"
+    }
+  ]
+}
