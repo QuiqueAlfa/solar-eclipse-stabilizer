@@ -58,7 +58,7 @@ python eclipse_stabilizer.py inspect VIDEO
 The POSIX example documents configuration only; it is not a claim that the project has
 been validated on Linux or macOS.
 
-## Optional ffprobe and strict fallback verification
+## Optional ffprobe and exact-count fallback verification
 
 ffprobe is preferred because it provides exact stream metadata cheaply. It is not a
 hard dependency.
@@ -69,21 +69,26 @@ count. `inspect` labels that metadata as **provisional**. Before `analyze`, `pre
 metadata through one complete-stream verification:
 
 1. FFmpeg decodes the stream through the `vfrdet` filter.
-2. The result must conclusively report CFR.
-3. A complete raw decode must deliver the exact expected frame count, including an
+2. The final transition tally supplies the decoded frame count for CFR and VFR input.
+3. That decoded count replaces a differing provisional OpenCV estimate.
+4. A complete raw decode must deliver the exact expected frame count, including an
    overrun sentinel check.
 
 The command stops before publishing output when:
 
-- the stream is variable-frame-rate;
 - `vfrdet` is inconclusive;
-- the decoded frame count differs from the expected count;
 - FFmpeg ends early or emits an extra frame;
 - the selected FFmpeg build lacks the `vfrdet` filter.
 
 Errors explain the failed requirement instead of silently trusting provisional
 metadata. The exact-count result participates in cache identity, so an unverified and
 a verified probe cannot share a cache accidentally.
+
+Variable-frame-rate input is accepted. Analysis follows decoded frame order and uses
+the average FPS for frame-based temporal windows. Preview and export intentionally
+normalize selected frames to constant frame rate at that average FPS (multiplied by the
+requested preview speed), so individual source timestamps are not preserved. Complete
+preview review remains especially important for sources with highly irregular timing.
 
 ## Capability checks
 
@@ -92,7 +97,7 @@ accepted only because `ffmpeg -version` succeeds. The checks verify that it can:
 
 - decode media to raw grayscale frames for analysis;
 - decode media to raw BGR frames for rendering/debug operations;
-- provide the filters required by strict CFR verification.
+- provide the filter required by exact-count fallback verification.
 
 `libx264` is required only for commands that actually encode video: `preview`,
 `export`, and `analyze --debug`. Plain `inspect` and `analyze` require decoding but do
@@ -105,8 +110,9 @@ described above.
 ## Output media contract
 
 Preview and export video use H.264 through `libx264`, `yuv420p`, no audio (`-an`) and
-`+faststart`. Final export preserves source width, height and FPS at 1×; preview may be
-smaller and accelerated.
+`+faststart`. Final export preserves source width, height and average FPS at 1×; preview
+may be smaller and accelerated. VFR source timing is normalized to this constant output
+rate.
 
 Encoding is atomic: the program writes a unique temporary sibling, validates the
 result where applicable, and replaces the destination only after success. See

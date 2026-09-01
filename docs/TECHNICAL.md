@@ -250,8 +250,9 @@ suite covers:
   refresh;
 - FFmpeg/ffprobe resolution priority, real capability checks and the requirement for
   `libx264` only when encoding is requested;
-- `vfrdet` parsing and strict rejection of VFR, frame-count mismatch, inconclusive
-  output or builds missing the required filter;
+- `vfrdet` parsing, acceptance of CFR/VFR input, correction of provisional frame-count
+  mismatches, and rejection of inconclusive output or builds missing the required
+  filter;
 - provisional OpenCV metadata and its upgrade to exact verified metadata;
 - atomic publication and cleanup for preview, export and debug review, including
   broken pipes, encoder/decoder failures and `os.replace` failure.

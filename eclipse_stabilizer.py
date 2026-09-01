@@ -61,6 +61,7 @@ from eclipse_stabilizer_core import (
     sparse_frames,
     validate_preview,
     verify_exact_cfr,
+    verify_exact_frame_count,
     write_debug,
 )
 from eclipse_stabilizer_core import (
@@ -339,7 +340,7 @@ def main() -> None:
     ffprobe = resolve_ffprobe()
     print(f"FFprobe     : {ffprobe}" if ffprobe else "FFprobe     : OpenCV fallback")
     if args.command != "inspect" and not info.frame_count_exact:
-        info = verify_exact_cfr(video, info)
+        info = verify_exact_frame_count(video, info)
     print_video_info(video, info)
     print(f"Salida      : {out_dir}")
     analysis_w, analysis_h = scaled_shape(info, args.analysis_width)
