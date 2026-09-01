@@ -304,16 +304,17 @@ def parse_vfrdet_output(raw: str) -> dict | None:
     return best
 
 
-def verify_exact_cfr(video: Path, info: VideoInfo) -> VideoInfo:
+def verify_exact_frame_count(video: Path, info: VideoInfo) -> VideoInfo:
     """Upgrade provisional metadata with one full FFmpeg ``vfrdet`` pass.
 
     Used when ``frame_count_exact`` is False, which happens either when ffprobe
     estimated the count from ``duration * fps`` or when the metadata came from
-    the OpenCV fallback.  Requires CFR cadence and a verified frame count equal
-    to the estimate; a build without the ``vfrdet`` filter, VFR, a count
-    mismatch or inconclusive output aborts with an actionable error before any
-    cache or output destination is created.  On success the returned
-    ``VideoInfo`` is exact.
+    the OpenCV fallback.  The final ``vfrdet`` transition tally supplies the
+    decoded frame count for both CFR and VFR sources.  That decoded count is
+    authoritative and replaces a differing estimate.  A build without the
+    ``vfrdet`` filter or inconclusive output aborts with an actionable error
+    before any cache or output destination is created.  On success the returned
+    ``VideoInfo`` has an exact frame count.
     """
     exe = resolve_ffmpeg()
     try:
@@ -342,27 +343,28 @@ def verify_exact_cfr(video: Path, info: VideoInfo) -> VideoInfo:
         ):
             raise SystemExit(
                 "Este FFmpeg no incluye el filtro 'vfrdet' (versión antigua o build sin "
-                "vfrdet). No se puede verificar la cadencia CFR: instala un FFmpeg reciente "
+                "vfrdet). No se puede verificar el conteo exacto: instala un FFmpeg reciente "
                 "o define la variable FFMPEG apuntando a uno que incluya vfrdet."
             ) from exc
         raise
     parsed = parse_vfrdet_output(raw)
     if parsed is None:
         raise SystemExit(
-            "La verificación CFR del vídeo no pudo concluir (sin medida vfrdet válida); "
+            "La verificación del conteo del vídeo no pudo concluir (sin medida vfrdet válida); "
             "se cancela antes de generar caché o salida."
         )
-    if parsed["vfr"] != 0:
-        raise SystemExit(
-            f"El vídeo tiene cadencia variable (vfrdet: {parsed['vfr']} desviaciones en "
-            f"{parsed['frames']} frames); se rechaza porque el análisis exige CFR."
-        )
-    if parsed["frames"] != info.frames:
-        raise SystemExit(
-            f"El conteo verificado ({parsed['frames']} frames) difiere del estimado "
-            f"({info.frames}); se cancela antes de generar caché o salida."
-        )
-    return dataclasses.replace(info, frames=parsed["frames"], frame_count_exact=True)
+    frames = parsed["frames"]
+    return dataclasses.replace(
+        info,
+        frames=frames,
+        duration=frames / info.fps,
+        frame_count_exact=True,
+    )
+
+
+# Public compatibility alias retained for callers of the v0.1 API.  The old
+# name described the former policy, not the current exact-count behavior.
+verify_exact_cfr = verify_exact_frame_count
 
 
 def find_video(explicit: str | None) -> Path:

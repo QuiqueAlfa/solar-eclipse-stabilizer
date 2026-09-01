@@ -41,9 +41,9 @@ The accounting is complete: `5657 = 5580 + 77`; no problematic frame is hidden.
 ## Requirements
 
 - Python **3.10+**.
-- FFmpeg for decoding, encoding and strict CFR verification.
-- ffprobe is preferred but optional; a strict fallback verification is used when it
-  is unavailable.
+- FFmpeg for decoding, encoding and exact frame-count verification.
+- ffprobe is preferred but optional; a complete-stream frame-count verification is
+  used when it is unavailable.
 - Python dependencies from [`requirements.txt`](requirements.txt): NumPy,
   headless OpenCV and `imageio-ffmpeg`.
 
@@ -52,13 +52,23 @@ variables and fallback behavior.
 
 ## Installation
 
-From the repository root on Windows:
+From the repository root in Windows PowerShell:
 
 ```powershell
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate
 python -m pip install -r requirements.txt
 ```
+
+From Windows Command Prompt (`cmd.exe`), activate the same environment with:
+
+```bat
+.venv\Scripts\activate.bat
+```
+
+`Activate.ps1` is the PowerShell script behind the extensionless `Activate` command.
+Running that `.ps1` file from Command Prompt may open its associated editor instead of
+activating the environment, so use the command that matches the current shell.
 
 On Linux/macOS:
 
@@ -142,6 +152,8 @@ repository with the dependencies in `requirements.txt`.
 - Preview is low resolution and accelerated by default (`--speed 2`).
 - Audio is removed.
 - Output is re-encoded as H.264 (`libx264`, `yuv420p`, `+faststart`).
+- Variable-frame-rate input is accepted and normalized to constant frame rate using
+  its average FPS; individual source timestamps are not preserved.
 - Annular eclipses remain experimental; totality is unsupported.
 
 ## Technical documentation

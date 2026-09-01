@@ -122,6 +122,7 @@ from .video import (
     scaled_shape,
     sparse_frames,
     verify_exact_cfr,
+    verify_exact_frame_count,
 )
 
 __all__ = [
@@ -161,6 +162,7 @@ __all__ = [
     "parse_probe_json",
     "parse_vfrdet_output",
     "verify_exact_cfr",
+    "verify_exact_frame_count",
     "resolve_ffmpeg",
     "resolve_ffprobe",
     "ensure_capabilities",

@@ -2201,7 +2201,7 @@ class PhaseThreePortabilityTests(unittest.TestCase):
             stabilizer.print_video_info(Path("v.mp4"), verified)
         self.assertNotIn("provisional", buffer.getvalue())
 
-    # --- vfrdet parser / strict verification -----------------------------------
+    # --- vfrdet parser / exact-count verification -------------------------------
 
     def test_parse_vfrdet_cfr(self):
         parsed = stabilizer.parse_vfrdet_output(
@@ -2226,34 +2226,39 @@ class PhaseThreePortabilityTests(unittest.TestCase):
         self.assertIsNone(stabilizer.parse_vfrdet_output("VFR:nan (0/0)"))
         self.assertIsNone(stabilizer.parse_vfrdet_output("sin medición vfrdet"))
 
-    def test_verify_exact_cfr_accepts_cfr_synthetic(self):
+    def test_verify_exact_frame_count_accepts_cfr_synthetic(self):
         self._require_ffmpeg()
         with tempfile.TemporaryDirectory() as tmp:
             video = write_synthetic_video(tmp, 24)
             provisional = stabilizer.VideoInfo(240, 360, 24, 30.0, 24 / 30.0, probe_source="opencv", frame_count_exact=False)
-            info = stabilizer.verify_exact_cfr(video, provisional)
+            info = stabilizer.verify_exact_frame_count(video, provisional)
             self.assertTrue(info.frame_count_exact)
             self.assertEqual(info.frames, 24)
 
-    def test_verify_exact_cfr_rejects_vfr_simulated(self):
+    def test_verify_exact_cfr_remains_a_compatibility_alias(self):
+        self.assertIs(stabilizer.verify_exact_cfr, stabilizer.verify_exact_frame_count)
+
+    def test_verify_exact_frame_count_accepts_vfr_simulated(self):
         provisional = stabilizer.VideoInfo(64, 64, 30, 30.0, 1.0, probe_source="opencv", frame_count_exact=False)
         with mock.patch.object(video_module, "run_capture", return_value="VFR:0.655172 (19/10) min: 33 max: 34 avg: 33"):
-            with self.assertRaises(SystemExit) as ctx:
-                stabilizer.verify_exact_cfr(Path("v.mkv"), provisional)
-        self.assertIn("cadencia variable", str(ctx.exception))
+            info = stabilizer.verify_exact_frame_count(Path("v.mkv"), provisional)
+        self.assertTrue(info.frame_count_exact)
+        self.assertEqual(info.frames, 30)
+        self.assertAlmostEqual(info.duration, 1.0)
 
-    def test_verify_exact_cfr_count_mismatch_rejected(self):
+    def test_verify_exact_frame_count_corrects_estimated_mismatch(self):
         provisional = stabilizer.VideoInfo(240, 360, 40, 30.0, 40 / 30.0, probe_source="opencv", frame_count_exact=False)
         with mock.patch.object(video_module, "run_capture", return_value="VFR:0.000000 (0/29)"):
-            with self.assertRaises(SystemExit) as ctx:
-                stabilizer.verify_exact_cfr(Path("v.mp4"), provisional)
-        self.assertIn("difiere del estimado", str(ctx.exception))
+            info = stabilizer.verify_exact_frame_count(Path("v.mp4"), provisional)
+        self.assertTrue(info.frame_count_exact)
+        self.assertEqual(info.frames, 30)
+        self.assertAlmostEqual(info.duration, 1.0)
 
-    def test_verify_exact_cfr_inconclusive_rejected(self):
+    def test_verify_exact_frame_count_inconclusive_rejected(self):
         provisional = stabilizer.VideoInfo(240, 360, 40, 30.0, 40 / 30.0, probe_source="opencv", frame_count_exact=False)
         with mock.patch.object(video_module, "run_capture", return_value=""):
             with self.assertRaises(SystemExit) as ctx:
-                stabilizer.verify_exact_cfr(Path("v.mp4"), provisional)
+                stabilizer.verify_exact_frame_count(Path("v.mp4"), provisional)
         self.assertIn("no pudo concluir", str(ctx.exception))
 
     def _write_vfr_fixture(self, tmp):
@@ -2286,11 +2291,11 @@ class PhaseThreePortabilityTests(unittest.TestCase):
             return None
         return path
 
-    def test_verify_exact_cfr_rejects_real_vfr_fixture(self):
+    def test_verify_exact_frame_count_accepts_real_vfr_fixture(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = self._write_vfr_fixture(tmp)
             if path is None:
-                self.skipTest("este FFmpeg no genera el fixture VFR; el rechazo se cubre con parser/simulado")
+                self.skipTest("este FFmpeg no genera el fixture VFR; la aceptación se cubre con parser/simulado")
             exe = self._require_ffmpeg()
             raw = subprocess.run(
                 [exe, "-hide_banner", "-loglevel", "info", "-i", str(path), "-vf", "vfrdet", "-an", "-f", "null", "-"],
@@ -2299,11 +2304,11 @@ class PhaseThreePortabilityTests(unittest.TestCase):
             ).stderr
             parsed = stabilizer.parse_vfrdet_output(raw)
             if parsed is None or parsed["vfr"] == 0:
-                self.skipTest("este FFmpeg no produce VFR detectable en el fixture; el rechazo se cubre con parser/simulado")
+                self.skipTest("este FFmpeg no produce VFR detectable en el fixture; la aceptación se cubre con parser/simulado")
             provisional = stabilizer.VideoInfo(64, 64, parsed["frames"], 30.0, parsed["frames"] / 30.0, probe_source="opencv", frame_count_exact=False)
-            with self.assertRaises(SystemExit) as ctx:
-                stabilizer.verify_exact_cfr(path, provisional)
-            self.assertIn("cadencia variable", str(ctx.exception))
+            info = stabilizer.verify_exact_frame_count(path, provisional)
+            self.assertTrue(info.frame_count_exact)
+            self.assertEqual(info.frames, parsed["frames"])
 
     # --- Cache identity --------------------------------------------------------
 
@@ -2614,13 +2619,13 @@ class PhaseThreePortabilityTests(unittest.TestCase):
 
     # --- Correction: vfrdet filter missing is actionable ---------------------
 
-    def test_verify_exact_cfr_missing_vfrdet_filter_actionable(self):
+    def test_verify_exact_frame_count_missing_vfrdet_filter_actionable(self):
         provisional = stabilizer.VideoInfo(240, 360, 30, 30.0, 1.0, probe_source="opencv", frame_count_exact=False)
         with mock.patch.object(
             video_module, "run_capture", side_effect=SystemExit("No such filter: 'vfrdet'")
         ):
             with self.assertRaises(SystemExit) as ctx:
-                stabilizer.verify_exact_cfr(Path("v.mp4"), provisional)
+                stabilizer.verify_exact_frame_count(Path("v.mp4"), provisional)
         self.assertIn("vfrdet", str(ctx.exception))
         self.assertIn("FFMPEG", str(ctx.exception))
 
@@ -2756,7 +2761,7 @@ class PhaseThreePortabilityTests(unittest.TestCase):
                                 with mock.patch.object(stabilizer, "ensure_capabilities", side_effect=cap):
                                     with mock.patch.object(stabilizer, "ffmpeg_version", return_value="v"):
                                         with mock.patch.object(stabilizer, "resolve_ffprobe", return_value=None):
-                                            with mock.patch.object(stabilizer, "verify_exact_cfr", side_effect=verify):
+                                            with mock.patch.object(stabilizer, "verify_exact_frame_count", side_effect=verify):
                                                 with mock.patch.object(stabilizer, "build_cache_identity", return_value={}):
                                                     with mock.patch.object(stabilizer, "cache_status", return_value=("missing", [])):
                                                         with mock.patch.object(stabilizer, "command_analyze", side_effect=lambda *a, **k: None):
@@ -2777,7 +2782,7 @@ class PhaseThreePortabilityTests(unittest.TestCase):
                                 with mock.patch.object(stabilizer, "ensure_capabilities", return_value="exe"):
                                     with mock.patch.object(stabilizer, "ffmpeg_version", return_value="v"):
                                         with mock.patch.object(stabilizer, "resolve_ffprobe", return_value=None):
-                                            with mock.patch.object(stabilizer, "verify_exact_cfr", side_effect=SystemExit("VFR detectado")):
+                                            with mock.patch.object(stabilizer, "verify_exact_frame_count", side_effect=SystemExit("conteo inconcluso")):
                                                 with contextlib.redirect_stdout(io.StringIO()):
                                                     with self.assertRaises(SystemExit):
                                                         stabilizer.main()
