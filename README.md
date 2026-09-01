@@ -52,23 +52,13 @@ variables and fallback behavior.
 
 ## Installation
 
-From the repository root in Windows PowerShell:
+From the repository root on Windows (Command Prompt or PowerShell):
 
-```powershell
+```text
 python -m venv .venv
 .\.venv\Scripts\Activate
 python -m pip install -r requirements.txt
 ```
-
-From Windows Command Prompt (`cmd.exe`), activate the same environment with:
-
-```bat
-.venv\Scripts\activate.bat
-```
-
-`Activate.ps1` is the PowerShell script behind the extensionless `Activate` command.
-Running that `.ps1` file from Command Prompt may open its associated editor instead of
-activating the environment, so use the command that matches the current shell.
 
 On Linux/macOS:
 
